@@ -5,6 +5,8 @@ import torch
 from torch import nn, Tensor
 import math
 import torch.nn.functional as F
+from torchmetrics import Accuracy, Precision, Recall
+from lightning import LightningModule
 
 
 def scaled_dot_product(q, k, v, mask=None, linear: bool = True):
@@ -81,32 +83,38 @@ def construct_MLP(hidden_dims: List[int], activation: nn.Module = nn.ReLU):
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len=5000):
+    def __init__(self, dmodel, max_len=5000):
         """Positional Encoding.
 
         Args:
-            d_model: Hidden dimensionality of the input.
+            dmodel: Hidden dimensionality of the input.
             max_len: Maximum length of a sequence to expect.
         """
         super().__init__()
 
         # Create matrix of [SeqLen, HiddenDim] representing the positional encoding for max_len inputs
-        pe = torch.zeros(max_len, d_model)
+        pe = torch.zeros(
+            (
+                int(max_len),
+                dmodel,
+            )
+        )
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+            torch.arange(0, dmodel, 2).float() * (-math.log(10000.0) / dmodel)
         )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)
-
         # register_buffer => Tensor which is not a parameter, but should be part of the modules state.
         # Used for tensors that need to be on the same device as the module.
         # persistent=False tells PyTorch to not add the buffer to the state dict (e.g. when we save the model)
         self.register_buffer("pe", pe, persistent=False)
 
     def forward(self, x):
-        x = x + self.pe[:, : x.size(1)]
+        # repeat pe on the 0 dim
+        pe = self.pe.repeat(x.size(0), 1, 1)
+        x = x + pe[:, : x.size(1), :]
         return x
 
 
@@ -115,7 +123,7 @@ class TransformerModel(torch.nn.Module):
     def __init__(
         self,
         ntoken: int,
-        d_model: int,
+        dmodel: int,
         nhead: int,
         nlayers: int,
         hiddens: List[int],
@@ -124,23 +132,23 @@ class TransformerModel(torch.nn.Module):
     ):
         super().__init__()
         self.model_type = "Transformer"
-        self.d_model = d_model
+        self.dmodel = dmodel
         self.is_linear = linear_attention
 
-        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        self.pos_encoder = PositionalEncoding(dmodel)
 
         self.multihead_attn = MultiheadAttention(
-            input_dim=d_model,
-            embed_dim=d_model,
+            input_dim=dmodel,
+            embed_dim=dmodel,
             num_heads=nhead,
             is_linear=linear_attention,
         )
 
-        self.embedding = nn.Embedding(ntoken, d_model)
+        self.embedding = nn.Embedding(ntoken, dmodel)
 
-        self.mlp = construct_MLP([d_model] + hiddens + [d_model])
+        self.mlp = construct_MLP([dmodel] + hiddens + [dmodel])
 
-        self.linear = nn.Linear(d_model, ntoken)
+        self.linear = nn.Linear(dmodel, ntoken)
 
         self.init_weights()
 
@@ -150,7 +158,7 @@ class TransformerModel(torch.nn.Module):
         self.linear.bias.data.zero_()
         self.linear.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, src: Tensor, src_mask: Tensor = None) -> Tensor:
+    def forward(self, src: Tensor, mask: Tensor = None) -> Tensor:
         """
         Arguments:
             src: Tensor, shape ``[seq_len, batch_size]``
@@ -159,14 +167,194 @@ class TransformerModel(torch.nn.Module):
         Returns:
             output Tensor of shape ``[seq_len, batch_size, ntoken]``
         """
-        src = self.embedding(src) * math.sqrt(self.d_model)
+        src = self.embedding(src) * math.sqrt(self.dmodel)
         src = self.pos_encoder(src)
         src = self.mlp(src)
-        if src_mask is None:
+        if mask is None:
             """Generate a square causal mask for the sequence. The masked positions are filled with float('-inf').
             Unmasked positions are filled with float(0.0).
             """
-            src_mask = nn.Transformer.generate_square_subsequent_mask(len(src))
-        output = self.multihead_attn(src, mask=src_mask)
+            mask = nn.Transformer.generate_square_subsequent_mask(src.shape[-2]).to(
+                src.device
+            )
+        output = self.multihead_attn(src, mask=mask)
         output = self.linear(output)
         return output
+
+
+import torch.optim as optim
+import numpy as np
+
+
+class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
+    def __init__(self, optimizer, warmup, max_iters):
+        self.warmup = warmup
+        self.max_num_iters = max_iters
+        super().__init__(optimizer)
+
+    def get_lr(self):
+        lr_factor = self.get_lr_factor(epoch=self.last_epoch)
+        return [base_lr * lr_factor for base_lr in self.base_lrs]
+
+    def get_lr_factor(self, epoch):
+        lr_factor = 0.5 * (1 + np.cos(np.pi * epoch / self.max_num_iters))
+        if epoch <= self.warmup:
+            lr_factor *= epoch * 1.0 / self.warmup
+        return lr_factor
+
+
+class TransformerPredictor(LightningModule):
+    def __init__(
+        self,
+        input_dim,
+        model_dim,
+        num_classes,
+        num_heads,
+        num_layers,
+        lr,
+        hiddens=[],
+        linear_attention=True,
+        dropout=0.0,
+        input_dropout=0.0,
+        warmup=100,
+        max_iters=1000,
+    ):
+        """TransformerPredictor.
+
+        Args:
+            input_dim: Hidden dimensionality of the input
+            model_dim: Hidden dimensionality to use inside the Transformer
+            num_classes: Number of classes to predict per sequence element
+            num_heads: Number of heads to use in the Multi-Head Attention blocks
+            num_layers: Number of encoder blocks to use.
+            lr: Learning rate in the optimizer
+            warmup: Number of warmup steps. Usually between 50 and 500
+            max_iters: Number of maximum iterations the model is trained for. This is needed for the CosineWarmup scheduler
+            dropout: Dropout to apply inside the model
+            input_dropout: Dropout to apply on the input features
+        """
+        super().__init__()
+        self.save_hyperparameters()
+        self.hparams.model_dim = model_dim
+        self.hparams.num_heads = num_heads
+        self.hparams.num_layers = num_layers
+        self.hparams.lr = lr
+        self.hparams.linear_attention = linear_attention
+        self.hparams.dropout = dropout
+        self.hparams.input_dropout = input_dropout
+        self.hparams.input_dim = input_dim
+        self.hparams.num_classes = num_classes
+        self.hparams.hiddens = hiddens
+        self.hparams.warmup = warmup
+        self.hparams.max_iters = max_iters
+        self._create_model()
+
+    def _create_model(self):
+        self.transformer = TransformerModel(
+            dmodel=self.hparams.model_dim,
+            nhead=self.hparams.num_heads,
+            nlayers=self.hparams.num_layers,
+            hiddens=self.hparams.hiddens,
+            dropout=self.hparams.dropout,
+            ntoken=self.hparams.num_classes,
+            linear_attention=self.hparams.linear_attention,
+        )
+
+    def forward(self, x, mask=None, add_positional_encoding=True):
+        """
+        Args:
+            x: Input features of shape [Batch, SeqLen, input_dim]
+            mask: Mask to apply on the attention outputs (optional)
+            add_positional_encoding: If True, we add the positional encoding to the input.
+                                      Might not be desired for some tasks.
+        """
+        x = self.transformer(x, mask=mask)
+        return x
+
+    @torch.no_grad()
+    def get_attention_maps(self, x, mask=None, add_positional_encoding=True):
+        """Function for extracting the attention matrices of the whole Transformer for a single batch.
+
+        Input arguments same as the forward pass.
+        """
+        x = self.input_net(x)
+        if add_positional_encoding:
+            x = self.positional_encoding(x)
+        attention_maps = self.transformer.get_attention_maps(x, mask=mask)
+        return attention_maps
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr)
+
+        # We don't return the lr scheduler because we need to apply it per iteration, not per epoch
+        self.lr_scheduler = CosineWarmupScheduler(
+            optimizer, warmup=self.hparams.warmup, max_iters=self.hparams.max_iters
+        )
+        return optimizer
+
+    def optimizer_step(self, *args, **kwargs):
+        super().optimizer_step(*args, **kwargs)
+        self.lr_scheduler.step()  # Step per iteration
+
+    def training_step(self, batch, batch_idx):
+        # next token prediction
+        # batch is (b, s)
+        x = batch[:, :-1]
+        y = batch[:, 1:]
+
+        # forward pass
+        y_hat = self(x)
+        b, s, d = y_hat.size()
+        loss = F.cross_entropy(y_hat.reshape(-1, d), y.reshape(-1))
+
+        self.log("train_loss", loss)
+        return loss
+
+    def eval_steps(self, batch, batch_idx):
+        x = batch[:, :-1]
+        y = batch[:, 1:]
+
+        y_hat = self(x)
+        b, s, d = y_hat.size()
+        loss = F.cross_entropy(y_hat.reshape(-1, d), y.reshape(-1))
+
+        accuracy = Accuracy(task="multiclass", num_classes=4).to(self.device)
+        precision = Precision(task="multiclass", num_classes=4).to(self.device)
+        recall = Recall(task="multiclass", num_classes=4).to(self.device)
+
+        acc = accuracy(y_hat.reshape(-1, d).argmax(dim=-1), y.reshape(-1))
+        prec = precision(y_hat.reshape(-1, d).argmax(dim=-1), y.reshape(-1))
+        rec = recall(y_hat.reshape(-1, d).argmax(dim=-1), y.reshape(-1))
+
+        return {
+            "loss": loss,
+            "accuracy": acc,
+            "precision": prec,
+            "recall": rec,
+        }
+
+    def validation_step(self, batch, batch_idx):
+        metric_dict = self.eval_steps(batch, batch_idx)
+        val_acc = metric_dict["accuracy"]
+        val_prec = metric_dict["precision"]
+        val_rec = metric_dict["recall"]
+        val_loss = metric_dict["loss"]
+
+        self.log("val_loss", val_loss)
+        self.log("val_accuracy", val_acc)
+        self.log("val_precision", val_prec)
+        self.log("val_recall", val_rec)
+        return val_loss
+
+    def test_step(self, batch, batch_idx):
+        metric_dict = self.eval_steps(batch, batch_idx)
+        test_acc = metric_dict["accuracy"]
+        test_prec = metric_dict["precision"]
+        test_rec = metric_dict["recall"]
+        test_loss = metric_dict["loss"]
+
+        self.log("val_loss", test_loss)
+        self.log("val_accuracy", test_acc)
+        self.log("val_precision", test_prec)
+        self.log("val_recall", test_rec)
+        return test_loss

@@ -1,13 +1,15 @@
 import torch
 from torch.utils.data import Dataset
-
+import random
 
 class ShuffleDyck2(Dataset):
-    def __init__(self):
+    def __init__(self, filename, percent=1.0):
         self.vocab = {"(": 0, ")": 1, "[": 2, "]": 3}
         data = []
-        with open("data/shuffle_dyck_2.txt") as f:
+        with open(filename) as f:
             data = [[self.vocab[c] for c in line[:-1]] for line in f]
+        
+        data = [d for d in data if random.random() <= percent]
         self.data = torch.tensor(data)
 
     def __len__(self):
