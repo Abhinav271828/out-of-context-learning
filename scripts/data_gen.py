@@ -57,11 +57,12 @@ def generate_L3(filename, num_samples):
             r = random.gauss(3, 2)
             sample += "b" * int(r)
             sample += "a"
-            while len(sample) < MAX_LENGTH:
+            while len(sample) < MAX_LENGTH-1:
                 if random.random() > 0.4: break
                 sample += "a"
-                r = random.gauss(3, 2)
-                sample += "b" * int(r)
+                if MAX_LENGTH - len(sample) > 1:
+                    r = random.randint(0, MAX_LENGTH-(len(sample)+1))
+                    sample += "b" * int(r)
                 sample += "a"
                 f.write(sample + "\n")
 
@@ -99,7 +100,7 @@ def generate_L6(filename, num_samples):
         for _ in tqdm(range(num_samples)):
             l = random.randint(1, MAX_LENGTH)
             sample = ""
-            while len(sample) < l:
+            while len(sample) < l-3:
                 sample += "a"
                 sample += "b"
                 if random.random() < 0.5:
