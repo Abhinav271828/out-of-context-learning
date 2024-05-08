@@ -52,7 +52,7 @@ class MembershipFewShot(Dataset):
                     # Positive samples
                     else:
                         sample = random.choice(samples).strip()
-                        rep = [alphabet[c] for c in sample] + [0] * (20-len(sample)) + [1]
+                        rep = [self.alphabet[c] for c in sample] + [0] * (20-len(sample)) + [1]
                         if (len(rep) > 21): print(sample, rep)
                         self.data[i][j] = torch.tensor([self.alphabet[c] for c in sample] + [0] * (20-len(sample)) + [1])
                 
