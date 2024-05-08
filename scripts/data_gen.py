@@ -36,7 +36,7 @@ def generate_L2(filename, num_samples):
                 sample = "a"
             else:
                 sample = "bb"
-            while len(sample) < MAX_LENGTH - 1:
+            while len(sample) < MAX_LENGTH - 2:
                 r = random.random()
                 if r < 0.33:
                     sample += "a"
