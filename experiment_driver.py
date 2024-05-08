@@ -1,6 +1,6 @@
 # %%
-from scripts.model_def import NTPLightning
-from dataset import ShuffleDyck2
+from scripts.model_def import MembershipLightning
+from dataset import MembershipFewShot
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
@@ -13,16 +13,16 @@ from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 
 
 def name_of_run(nheads, model_dim, num_classes, is_linear):
-    return f"nheads={nheads}_model_dim={model_dim}_num_classes={num_classes}_is_linear={is_linear}"
+    return f"membership-mlp-nheads={nheads}_model_dim={model_dim}_num_classes={num_classes}_is_linear={is_linear}"
 
 
 # def main():
 
 # datasets
 # %%
-train_dataset = ShuffleDyck2("../train_dyck_2.txt", percent=0.06)
-val_dataset = ShuffleDyck2("../val_dyck_2.txt")
-test_dataset = ShuffleDyck2("../test_dyck_2.txt")
+train_dataset = MembershipFewShot(10, 80000)
+val_dataset = MembershipFewShot(10, 10000)
+test_dataset = MembershipFewShot(10, 10000)
 
 from torch.utils.data import DataLoader
 
@@ -32,20 +32,19 @@ test_loader = DataLoader(test_dataset, batch_size=64)
 
 # model
 # %%
-model = NTPLightning(
-    input_dim=4,
-    model_dim=16,
-    num_classes=4,
-    num_heads=8,
-    num_layers=1,
-    hiddens=[8, 8],
+model = MembershipLightning(
+    string_length=20,
+    model_dim=32,
+    num_classes=2,
+    num_heads=1,
     lr=1e-3,
+    hiddens=[8, 8],
     linear_attention=True,
 )
 
 # %%
 # logger
-run_name = name_of_run(8, 16, 4, True)
+run_name = name_of_run(1, 32, 1, True)
 logger = WandbLogger(project="MGM", name=run_name)
 
 # early stopping
