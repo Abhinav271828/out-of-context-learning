@@ -38,10 +38,13 @@ class MembershipFewShot(Dataset):
         self.generate_data()
     
     def generate_data(self):
+        tasks_per_language = self.dataset_size // 6 + 1
         for language in range(1, 7):
             with open(f'data/L{language}.txt', 'r') as f:
                 samples = f.readlines()
-                for i in tqdm(range(self.dataset_size // 6), desc=f'Generating data for language {language}'):
+                for i in tqdm(range((language-1)*tasks_per_language,
+                                    min(language*tasks_per_language, self.dataset_size)),
+                              desc=f'Generating data for language {language}'):
                     self.languages[i] = language
                     # Inputs (examples)
                     for j in range(self.num_examples):
