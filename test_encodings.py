@@ -22,7 +22,8 @@ from torch.utils.data import DataLoader
 
 # load pretrained checkpoint
 
-model = AutoEncoderLightning.load_from_checkpoint("MGM/rh0h2m8h/checkpoints/epoch=17-step=313380.ckpt")
+# model = AutoEncoderLightning.load_from_checkpoint("MGM/rh0h2m8h/checkpoints/epoch=17-step=313380.ckpt")
+model = AutoEncoderLightning.load_from_checkpoint("MGM/5a3e1n10/checkpoints/epoch=18-step=330942.ckpt")
 encoder = model.model.encoder
 
 
@@ -36,7 +37,7 @@ train, val, test = create_dataset_splits("data", max_len=20)
 # %%
 
 # get data of a particular class from train
-train_data = list(test)
+train_data = list(train)
 
 # sample a subset of the data
 train_data = train_data[:2000]

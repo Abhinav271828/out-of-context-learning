@@ -1,5 +1,4 @@
 # %%
-from scripts.model_def import TransformerPredictor
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
@@ -50,7 +49,7 @@ run_name = "autoencoder_20_16_8_16_20"
 logger = WandbLogger(project="MGM", name=run_name, config=config)
 
 # early stopping
-early_stopping = EarlyStopping(monitor="val_loss", patience=5, mode="min", verbose=True)
+early_stopping = EarlyStopping(monitor="val_loss", min_delta=1e-4, patience=5, mode="min", verbose=True)
 
 # trainer
 trainer = Trainer(
