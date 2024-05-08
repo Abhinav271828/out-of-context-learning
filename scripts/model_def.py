@@ -501,9 +501,9 @@ class MembershipLightning(LightningModule):
         precision = Precision(task="binary").to(self.device)
         recall = Recall(task="binary").to(self.device)
 
-        acc = accuracy(y_hat.argmax(dim=-1), y)
-        prec = precision(y_hat.argmax(dim=-1), y)
-        rec = recall(y_hat.argmax(dim=-1), y)
+        acc = accuracy(y_hat, y)
+        prec = precision(y_hat, y)
+        rec = recall(y_hat, y)
 
         return {
             "loss": loss,
