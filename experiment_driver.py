@@ -1,5 +1,5 @@
 # %%
-from scripts.model_def import TransformerPredictor
+from scripts.model_def import NTPLightning
 from dataset import ShuffleDyck2
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
@@ -32,7 +32,7 @@ test_loader = DataLoader(test_dataset, batch_size=64)
 
 # model
 # %%
-model = TransformerPredictor(
+model = NTPLightning(
     input_dim=4,
     model_dim=16,
     num_classes=4,

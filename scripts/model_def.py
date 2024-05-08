@@ -118,7 +118,7 @@ class PositionalEncoding(nn.Module):
         return x
 
 
-class TransformerModel(torch.nn.Module):
+class NTPModel(torch.nn.Module):
 
     def __init__(
         self,
@@ -203,7 +203,7 @@ class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
         return lr_factor
 
 
-class TransformerPredictor(LightningModule):
+class NTPLightning(LightningModule):
     def __init__(
         self,
         input_dim,
@@ -219,7 +219,7 @@ class TransformerPredictor(LightningModule):
         warmup=100,
         max_iters=1000,
     ):
-        """TransformerPredictor.
+        """NTPLightning.
 
         Args:
             input_dim: Hidden dimensionality of the input
@@ -250,7 +250,7 @@ class TransformerPredictor(LightningModule):
         self._create_model()
 
     def _create_model(self):
-        self.transformer = TransformerModel(
+        self.transformer = NTPModel(
             dmodel=self.hparams.model_dim,
             nhead=self.hparams.num_heads,
             nlayers=self.hparams.num_layers,
