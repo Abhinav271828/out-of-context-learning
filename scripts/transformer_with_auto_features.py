@@ -98,6 +98,7 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         warmup=100,
         max_iters=1000,
         regression_func=None,
+        att_object=None,
     ):
         """NTPLightning.
 
@@ -126,6 +127,7 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         self.hparams.max_iters = max_iters
         self.hparams.regression_func = regression_func
         self.autoencoder = autoencoder
+        self.att_object = att_object
         self._create_model()
 
     def _create_model(self):
@@ -162,6 +164,10 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         super().optimizer_step(*args, **kwargs)
         self.lr_scheduler.step()  # Step per iteration
 
+    def _compare_qkv(self):
+        self.log("WHATEVER YOU WANT BANI")
+        # TODO: Bani fill this up and log the error thing
+
     def training_step(self, batch, batch_idx):
         # next token prediction
         # batch is (b, s)
@@ -173,6 +179,7 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         loss = F.mse_loss(y_hat, y)
 
         self.log("train_loss", loss)
+        self._compare_qkv()
         return loss
 
     def eval_steps(self, batch, batch_idx):
