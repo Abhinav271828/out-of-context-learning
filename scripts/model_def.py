@@ -358,3 +358,46 @@ class NTPLightning(LightningModule):
         self.log("val_precision", test_prec)
         self.log("val_recall", test_rec)
         return test_loss
+
+class MembershipModel(torch.nn.Module):
+    def __init__(
+        self,
+        str_len: int,
+        dmodel: int,
+        nhead: int,
+        hiddens: List[int],
+        linear_attention: bool = True,
+    ):
+        super().__init__()
+        self.model_type = "Transformer"
+        self.dmodel = dmodel
+        self.is_linear = linear_attention
+
+        self.multihead_attn = MultiheadAttention(
+            input_dim=dmodel,
+            embed_dim=dmodel,
+            num_heads=nhead,
+            is_linear=linear_attention,
+        )
+
+        self.mlp = construct_MLP([str_len+1] + hiddens + [dmodel])
+
+    def forward(self, src: Tensor) -> Tensor:
+        """
+        Arguments:
+            src: Tensor, shape ``[batch_size, num_examples+1, str_len+1]``
+                num_examples is the number of examples per task
+                    the last example is the test sample
+                str_len is the maximum length of an input string
+                    the last position is the label
+        Returns:
+            output Tensor of shape ``[batch_size]``
+        """
+        # src : [b, n_e+1, s_l+1]
+        src = self.mlp(src)
+        # src : [b, n_e+1, d_model]
+        output = self.multihead_attn(src)
+        # output : [b, n_e+1, d_model]
+        # We interpret the last element of the vectors to be the label
+        # and return the label of the test token.
+        return output[:, -1, -1]
