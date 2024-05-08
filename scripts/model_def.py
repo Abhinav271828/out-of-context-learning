@@ -68,6 +68,8 @@ class MultiheadAttention(nn.Module):
         values = values.reshape(batch_size, seq_length, embed_dim)
         o = self.o_proj(values)
 
+        out = x + o  # Residual connection
+
         if return_attention:
             return o, attention
         else:
@@ -359,6 +361,7 @@ class NTPLightning(LightningModule):
         self.log("val_recall", test_rec)
         return test_loss
 
+
 class MembershipModel(torch.nn.Module):
     def __init__(
         self,
@@ -380,7 +383,7 @@ class MembershipModel(torch.nn.Module):
             is_linear=linear_attention,
         )
 
-        self.mlp = construct_MLP([str_len+1] + hiddens + [dmodel])
+        self.mlp = construct_MLP([str_len + 1] + hiddens + [dmodel])
 
     def forward(self, src: Tensor) -> Tensor:
         """
@@ -401,6 +404,7 @@ class MembershipModel(torch.nn.Module):
         # We interpret the last element of the vectors to be the label
         # and return the label of the test token.
         return output[:, -1, -1]
+
 
 class MembershipLightning(LightningModule):
     def __init__(
@@ -484,7 +488,7 @@ class MembershipLightning(LightningModule):
         y = batch[1]
 
         # forward pass
-        y_hat = self(x) # y_hat : [bz]
+        y_hat = self(x)  # y_hat : [bz]
         loss = F.mse_loss(y_hat, y)
 
         self.log("train_loss", loss)
