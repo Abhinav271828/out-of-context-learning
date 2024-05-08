@@ -34,7 +34,7 @@ class MembershipFewShot(Dataset):
         self.data = torch.zeros(self.dataset_size, self.num_examples+1, 21)
         self.labels = torch.zeros(self.dataset_size)
         self.languages = torch.zeros(self.dataset_size)
-        alphabet = {'a': -1, 'b': 1, 'c': 3}
+        self.alphabet = {'a': 0, 'b': 1, 'c': 2}
         self.generate_data()
     
     def generate_data(self):
@@ -42,33 +42,30 @@ class MembershipFewShot(Dataset):
             language = random.randint(1, 6)
             self.languages[i] = language
             with open(f'data/L{language}.txt', 'r') as f:
-                if language <= 3: alphabet = {'a': -1, 'b': 1}
-                else: alphabet = {'a': -1, 'b': 1, 'c': 3}
-
                 # Inputs (examples)
                 samples = f.readlines()
                 for j in range(self.num_examples):
                     # Negative samples
                     if random.random() < self.neg_samples:
                         length = random.randint(1, 20)
-                        self.data[i][j] = torch.tensor(random.choices(sorted(alphabet.values()), k=length) + [0] * (20-length) + [-1])
+                        self.data[i][j] = torch.tensor(random.choices(sorted(self.alphabet.values()), k=length) + [0] * (20-length) + [-1])
                     # Positive samples
                     else:
                         sample = random.choice(samples).strip()
                         rep = [alphabet[c] for c in sample] + [0] * (20-len(sample)) + [1]
                         if (len(rep) > 21): print(sample, rep)
-                        self.data[i][j] = torch.tensor([alphabet[c] for c in sample] + [0] * (20-len(sample)) + [1])
+                        self.data[i][j] = torch.tensor([self.alphabet[c] for c in sample] + [0] * (20-len(sample)) + [1])
                 
                 # Test sample
                 # Negative
                 if random.random() < 0.5:
                     length = random.randint(1, 20)
-                    self.data[i][self.num_examples] = torch.tensor(random.choices(sorted(alphabet.values()), k=length) + [0] * (20-length) + [0])
-                    self.labels[i] = -1
+                    self.data[i][self.num_examples] = torch.tensor(random.choices(sorted(self.alphabet.values()), k=length) + [0] * (20-length) + [0])
+                    self.labels[i] = 0
                 # Positive
                 else:
                     sample = random.choice(samples).strip()
-                    self.data[i][self.num_examples] = torch.tensor([alphabet[c] for c in sample] + [0] * (20-len(sample)) + [0])
+                    self.data[i][self.num_examples] = torch.tensor([self.alphabet[c] for c in sample] + [0] * (20-len(sample)) + [0])
                     self.labels[i] = 1
 
     def __len__(self):
