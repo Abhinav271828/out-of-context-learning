@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 import random
+from tqdm import tqdm
 
 class MembershipFewShot(Dataset):
     """
@@ -37,7 +38,7 @@ class MembershipFewShot(Dataset):
         self.generate_data()
     
     def generate_data(self):
-        for i in range(self.dataset_size):
+        for i in tqdm(range(self.dataset_size), desc='Generating data'):
             language = random.randint(1, 6)
             self.languages[i] = language
             with open(f'data/L{language}.txt', 'r') as f:
