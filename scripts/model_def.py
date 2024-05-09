@@ -36,9 +36,8 @@ class MultiheadAttention(nn.Module):
         self.head_dim = embed_dim // num_heads
 
         # Stack all weight matrices 1...h together for efficiency
-        # Note that in many implementations you see "bias=False" which is optional
-        self.qkv_proj = nn.Linear(input_dim, 3 * embed_dim)
-        self.o_proj = nn.Linear(embed_dim, embed_dim)
+        self.qkv_proj = nn.Linear(input_dim, 3 * embed_dim, bias=False)
+        self.o_proj = nn.Linear(embed_dim, embed_dim, bias=False)
 
         self.is_linear = is_linear
 
@@ -47,9 +46,7 @@ class MultiheadAttention(nn.Module):
     def _reset_parameters(self):
         # Original Transformer initialization, see PyTorch documentation
         nn.init.xavier_uniform_(self.qkv_proj.weight)
-        self.qkv_proj.bias.data.fill_(0)
         nn.init.xavier_uniform_(self.o_proj.weight)
-        self.o_proj.bias.data.fill_(0)
 
     def forward(self, x, mask=None, return_attention=False):
         batch_size, seq_length, embed_dim = x.size()
