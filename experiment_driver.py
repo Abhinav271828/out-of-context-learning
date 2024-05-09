@@ -42,7 +42,7 @@ model = AutoEncoderLightning.load_from_checkpoint(
     "MGM/5a3e1n10/checkpoints/epoch=18-step=330942.ckpt"
 )
 encoder = model.model.encoder
-clf = torch.load("classify_between_trash_and_regula.pt")
+#clf = torch.load("classify_between_trash_and_regula.pt")
 
 model = MembershipModelPlusAutoEncoderLightning(
     string_length=20,

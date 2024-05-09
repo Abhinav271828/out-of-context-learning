@@ -91,7 +91,7 @@ class MembershipFewShot(Dataset):
                             + [0]
                         )
                         self.labels[i] = 1
-        print(self.labels.mean())
+        print("Mean of labels:", self.labels.mean())
 
     def __len__(self):
         return self.dataset_size

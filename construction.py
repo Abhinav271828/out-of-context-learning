@@ -17,17 +17,15 @@ def create_mha_construction(input_dim, num_heads, initial_weights, lr):
 
     w_v = torch.zeros(input_dim, input_dim)
     w_v[-1:, :x_size] = initial_weights
-    w_v[-1:, x_size:] = torch.eye(input_dim)
+    w_v[-1:, x_size:] = - torch.eye(1)
 
     p = (lr / num_heads) * torch.eye(input_dim)
 
     mha = MultiheadAttention(input_dim, input_dim, num_heads)
 
-    mha.qkv_proj.weight.data = torch.concat([w_q, w_k, w_v], dim=1)
-    mha.qkv_proj.bias.data = torch.zeros(input_dim * 3)
+    mha.qkv_proj.weight.data = torch.concat([w_q, w_k, w_v], dim=1).transpose(0, 1)
 
     mha.o_proj.weight.data = p
-    mha.o_proj.bias.data = torch.zeros(input_dim)
 
     mha.requires_grad_(False)
 

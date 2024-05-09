@@ -14,6 +14,7 @@ from scripts.dataset_scripts.auto_encoder_data import create_dataset_splits
 from scripts.autoencoder import AutoEncoderLightning
 from scripts.dataset_scripts.auto_encoder_data import create_dataset_splits
 from torch.utils.data import DataLoader
+from construction import create_mha_construction
 import random
 
 
@@ -139,6 +140,7 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
             autoencoder=self.autoencoder,
             regression_func=self.hparams.regression_func,
         )
+        self.constructed = create_mha_construction(self.hparams.model_dim, 1, torch.zeros(1, self.hparams.model_dim-1), 4)
 
     def forward(self, x):
         """
@@ -164,9 +166,21 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         super().optimizer_step(*args, **kwargs)
         self.lr_scheduler.step()  # Step per iteration
 
-    # def _compare_qkv(self):
-    #     self.log("WHATEVER YOU WANT BANI")
-    #     # TODO: Bani fill this up and log the error thing
+    def _compare_y(self, batch):
+        # We compare the predictions of the training model with those
+        # of the model with the constructed attention plugged in.
+        x, y = batch
+
+        # Training model predictions
+        y_hat = self(x).detach() # [bz]
+
+        # Constructed model predictions
+        src = self.transformer.make_features(x)
+        # src : [b, n_e+1, d_model]
+        y_GD = self.constructed(src).detach()
+
+        diff = F.l1_loss(y_hat, y_GD[:, -1, -1])
+        self.log("Predictions L1 Difference", diff)
 
     def training_step(self, batch, batch_idx):
         # next token prediction
@@ -179,7 +193,7 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         loss = F.mse_loss(y_hat, y)
 
         self.log("train_loss", loss)
-        # self._compare_qkv()
+        self._compare_y(batch)
         return loss
 
     def eval_steps(self, batch, batch_idx):
