@@ -17,12 +17,13 @@ def name_of_run(nheads, model_dim, num_classes, is_linear):
 # %%
 
 from scripts.dataset_scripts.auto_encoder_data import create_dataset_splits
-%ls
+#%ls
 
 train, val, test = create_dataset_splits("data", max_len=20)
 
 train[10]
 
+# First, we define datasets and dataloaders that sample from all the languages (including negative samples).
 # %%
 from torch.utils.data import DataLoader
 train_loader = DataLoader(train, batch_size=256, shuffle=True)
@@ -33,6 +34,8 @@ test_loader = DataLoader(test, batch_size=64)
 
 next(iter(train_loader))['language'].shape
 
+# Then, we define the autoencoder that will train on these datasets.
+# We define the logger and the trainer objects, and train and test the model.
 #%%
 
 config = {
@@ -58,15 +61,12 @@ trainer = Trainer(
     callbacks=[early_stopping],
 )
 
-# model
 from scripts.autoencoder import AutoEncoderLightning
 
 model = AutoEncoderLightning(str_len=20, hiddens=[16, 8, 16])
 
-# train
 trainer.fit(model, train_loader, val_loader)
 
-# test
 trainer.test(model, test_loader)
 
 # %%
