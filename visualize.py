@@ -34,7 +34,7 @@ def plot_relevant_stuff(q_k_v, out_proj):
 
 
 # %%
-mhs = send_multi_head_attn_from_membershipmodel("MGM/7wxdd8yu/checkpoints/epoch=32-step=41250.ckpt")
+mha = send_multi_head_attn_from_membershipmodel("MGM/7wxdd8yu/checkpoints/epoch=32-step=41250.ckpt")
 plot_relevant_stuff(multi_head_attn_layer_to_matrices(mha))
 
 
