@@ -59,7 +59,7 @@ class MembershipModelPlusAutoEncoder(torch.nn.Module):
             if self.regression_func is not None:
                 outs = self.regression_func(src_in)  # [b, n_e+1, 1]
             else:
-                outs = src[:, :, -1] # [b, n_e+1, 1]
+                outs = src[:, :, [-1]]  # [b, n_e+1, 1]
 
             return torch.cat([src_in, outs], dim=-1)  # [b, n_e+1, d_model]
 
@@ -164,9 +164,9 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         super().optimizer_step(*args, **kwargs)
         self.lr_scheduler.step()  # Step per iteration
 
-    def _compare_qkv(self):
-        self.log("WHATEVER YOU WANT BANI")
-        # TODO: Bani fill this up and log the error thing
+    # def _compare_qkv(self):
+    #     self.log("WHATEVER YOU WANT BANI")
+    #     # TODO: Bani fill this up and log the error thing
 
     def training_step(self, batch, batch_idx):
         # next token prediction
@@ -179,7 +179,7 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         loss = F.mse_loss(y_hat, y)
 
         self.log("train_loss", loss)
-        self._compare_qkv()
+        # self._compare_qkv()
         return loss
 
     def eval_steps(self, batch, batch_idx):
@@ -189,7 +189,12 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
 
-        y_hat_preds = torch.where(y_hat > 0, 1.0, 0.0)
+        if self.hparams.regression_func is not None:
+            y_hat_preds = torch.where(y_hat > 0.0, 1.0, 0.0)
+            y = torch.where(y > 0.0, 1.0, 0.0)
+        else:
+            y_hat_preds = torch.where(y_hat > 0.0, 1.0, 0.0)
+            y = torch.where(y > 0.0, 1.0, 0.0)
 
         accuracy = Accuracy(task="binary").to(self.device)
         precision = Precision(task="binary").to(self.device)
