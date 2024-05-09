@@ -140,7 +140,9 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
             autoencoder=self.autoencoder,
             regression_func=self.hparams.regression_func,
         )
-        self.constructed = create_mha_construction(self.hparams.model_dim, 1, torch.zeros(1, self.hparams.model_dim-1), 4)
+        self.constructed = create_mha_construction(
+            self.hparams.model_dim, 1, torch.zeros(1, self.hparams.model_dim - 1), 4
+        )
 
     def forward(self, x):
         """
@@ -172,15 +174,15 @@ class MembershipModelPlusAutoEncoderLightning(LightningModule):
         x, y = batch
 
         # Training model predictions
-        y_hat = self(x).detach() # [bz]
+        y_hat = self(x).detach()  # [bz]
 
         # Constructed model predictions
         src = self.transformer.make_features(x)
         # src : [b, n_e+1, d_model]
         y_GD = self.constructed(src).detach()
 
-        diff = F.l1_loss(y_hat, y_GD[:, -1, -1])
-        self.log("Predictions L1 Difference", diff)
+        diff = F.mse_loss(y_hat, y_GD[:, -1, -1])
+        self.log("Predictions MSE Difference", diff)
 
     def training_step(self, batch, batch_idx):
         # next token prediction
