@@ -59,7 +59,7 @@ class MembershipModelPlusAutoEncoder(torch.nn.Module):
             if self.regression_func is not None:
                 outs = self.regression_func(src_in)  # [b, n_e+1, 1]
             else:
-                outs = torch.zeros(src.size(0), src.size(1), 1, device=src.device)
+                outs = src[:, :, -1] # [b, n_e+1, 1]
 
             return torch.cat([src_in, outs], dim=-1)  # [b, n_e+1, d_model]
 
