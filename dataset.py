@@ -41,9 +41,9 @@ class MembershipFewShot(Dataset):
         self.generate_data()
 
     def generate_data(self):
-        tasks_per_language = self.dataset_size // 6 + 1
-        for language in range(1, 7):
-            with open(f"data/L{language}.txt", "r") as f:
+        tasks_per_language = self.dataset_size // 3 + 1
+        for language in range(1, 4):
+            with open(f"data/L{language+3}.txt", "r") as f:
                 samples = f.readlines()
                 for i in tqdm(
                     range(
@@ -81,7 +81,7 @@ class MembershipFewShot(Dataset):
                             + [self.pad_token] * (20 - length)
                             + [0]
                         )
-                        self.labels[i] = 0
+                        self.labels[i] = -1
                     # Positive
                     else:
                         sample = random.choice(samples).strip()
@@ -91,6 +91,7 @@ class MembershipFewShot(Dataset):
                             + [0]
                         )
                         self.labels[i] = 1
+        print(self.labels.mean())
 
     def __len__(self):
         return self.dataset_size
