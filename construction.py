@@ -28,5 +28,7 @@ def create_mha_construction(input_dim, num_heads, initial_weights, lr):
 
     mha.o_proj.weight.data = p
     mha.o_proj.bias.data = torch.zeros(input_dim)
-    
+
+    mha.requires_grad_(False)
+
     return mha
